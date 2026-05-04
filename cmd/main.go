@@ -6,6 +6,7 @@ import (
 
 	"github.com/alexvitayu/EngAIbot/internal/config"
 	"github.com/alexvitayu/EngAIbot/internal/logger"
+	"github.com/alexvitayu/EngAIbot/internal/tg_bot"
 )
 
 func main() {
@@ -20,4 +21,6 @@ func main() {
 	customLogger := logger.SetupLogger(cfg)
 	slog.SetDefault(customLogger)
 	slog.Debug("APP_ENV", "app_env", cfg.APPEnv)
+
+	tg_bot.TgBot(*cfg)
 }

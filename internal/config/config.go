@@ -27,11 +27,29 @@ func LoadCfg() (*AppConfig, error) {
 			}
 		}
 	}
+
+	if env == "test" {
+		if _, err := os.Stat("../../../.env.test"); err == nil {
+			if loadErr := godotenv.Load("../../../.env.test"); loadErr != nil {
+				slog.Debug("failed to load .env.test", "error", loadErr)
+				return nil, fmt.Errorf("loading %s: %w", ".env.test", loadErr)
+			}
+		}
+	}
+
 	config := &AppConfig{
 		APPEnv:    env,
-		TgAPI:     "TELEGRAM_APITOKEN",
-		GeminiAPI: "GEMINI_API_KEY",
-		GroqAPI:   "GROQ_API_KEY",
+		TgAPI:     getEnv("TELEGRAM_APITOKEN", ""),
+		GeminiAPI: getEnv("GEMINI_API_KEY", ""),
+		GroqAPI:   getEnv("GROQ_API_KEY", ""),
 	}
 	return config, nil
+}
+
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }

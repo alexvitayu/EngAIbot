@@ -1,2 +1,2 @@
 # EngAIbot
-Telegram bot for learning English based on AI
+Telegram bot for learning PhraseInLanguage based on AI
