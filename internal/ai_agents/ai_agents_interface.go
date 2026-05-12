@@ -4,8 +4,8 @@ import (
 	"context"
 )
 
-type AIAgents interface {
-	GenerateInfo(ctx context.Context, quota, level int, lang, subject string) (*AIResponse, error)
+type PhraseGenerator interface {
+	GeneratePhrases(ctx context.Context, quota int, level, lang, topic string) (*AIResponse, error)
 }
 
 type AIResponse struct {

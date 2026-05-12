@@ -9,10 +9,28 @@ import (
 )
 
 type AppConfig struct {
-	APPEnv    string
-	TgAPI     string
-	GeminiAPI string
-	GroqAPI   string
+	APPEnv     string
+	TgAPI      string
+	GeminiAPI  string
+	GroqAPI    string
+	DBConfig   DBConfig
+	PoolConfig PoolConfig
+}
+
+type DBConfig struct {
+	DATABASE_URL string
+	DBHost       string
+	DBPort       string
+	DBName       string
+	DBUser       string
+	DBPassword   string
+	DBSSLMode    string
+}
+
+type PoolConfig struct {
+	DBMaxConns        string
+	DBMaxIdleConns    string
+	DBConnMaxLifetime string
 }
 
 func LoadCfg() (*AppConfig, error) {
@@ -37,11 +55,29 @@ func LoadCfg() (*AppConfig, error) {
 		}
 	}
 
+	dbConfig := DBConfig{
+		DATABASE_URL: getEnv("DATABASE_URL", ""),
+		DBHost:       getEnv("DB_HOST", "localhost"),
+		DBPort:       getEnv("DB_PORT", "5434"),
+		DBName:       getEnv("DB_NAME", ""),
+		DBUser:       getEnv("DB_USER", ""),
+		DBPassword:   getEnv("DB_PASSWORD", ""),
+		DBSSLMode:    getEnv("DB_SSL_MODE", "disable"),
+	}
+
+	poolConfig := PoolConfig{
+		DBMaxConns:        getEnv("DB_MAX_CONNS", "10"),
+		DBMaxIdleConns:    getEnv("DB_MAX_IDLE_CONNS", "5"),
+		DBConnMaxLifetime: getEnv("DB_CONN_MAX_LIFETIME", "30m"),
+	}
+
 	config := &AppConfig{
-		APPEnv:    env,
-		TgAPI:     getEnv("TELEGRAM_APITOKEN", ""),
-		GeminiAPI: getEnv("GEMINI_API_KEY", ""),
-		GroqAPI:   getEnv("GROQ_API_KEY", ""),
+		APPEnv:     env,
+		TgAPI:      getEnv("TELEGRAM_APITOKEN", ""),
+		GeminiAPI:  getEnv("GEMINI_API_KEY", ""),
+		GroqAPI:    getEnv("GROQ_API_KEY", ""),
+		DBConfig:   dbConfig,
+		PoolConfig: poolConfig,
 	}
 	return config, nil
 }

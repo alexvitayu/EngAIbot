@@ -9,15 +9,16 @@ import (
 	"github.com/ZaguanLabs/groq-go/groq"
 	"github.com/ZaguanLabs/groq-go/groq/types"
 	"github.com/alexvitayu/EngAIbot/internal/ai_agents"
+	"github.com/alexvitayu/EngAIbot/internal/config"
 )
 
 type Groq struct {
 	client *groq.Client
 }
 
-func NewGroq(apiKey string) (*Groq, error) {
+func NewGroq(cfg *config.AppConfig) (*Groq, error) {
 	client, err := groq.NewClient(
-		groq.WithAPIKey(apiKey),
+		groq.WithAPIKey(cfg.GroqAPI),
 	)
 	if err != nil {
 		slog.Error("failed to create a new groq client", "error", err)
@@ -29,7 +30,7 @@ func NewGroq(apiKey string) (*Groq, error) {
 	return g, nil
 }
 
-func (g *Groq) GenerateInfo(ctx context.Context, quota int, level, lang, topic string) (*ai_agents.AIResponse, error) {
+func (g *Groq) GeneratePhrases(ctx context.Context, quota int, level, lang, topic string) (*ai_agents.AIResponse, error) {
 	prompt := fmt.Sprintf(`
 Ты - генератор учебных материалов для изучения %s языка.
 Сгенерируй %d фраз на языке=%s для студентов уровня=%s на тему=%s.
@@ -71,7 +72,7 @@ func (g *Groq) GenerateInfo(ctx context.Context, quota int, level, lang, topic s
 
 	if err != nil {
 		slog.Error("failed to get response from groq", "error", err)
-		return &ai_agents.AIResponse{}, fmt.Errorf("GenerateInfo: %w", err)
+		return &ai_agents.AIResponse{}, fmt.Errorf("GeneratePhrases: %w", err)
 	}
 
 	if len(resp.Choices) == 0 {
@@ -83,7 +84,7 @@ func (g *Groq) GenerateInfo(ctx context.Context, quota int, level, lang, topic s
 	var phrases ai_agents.AIResponse
 	if err := json.Unmarshal([]byte(jsonResponse), &phrases); err != nil {
 		slog.Error("failed to unmarshal json", "error", err)
-		return &ai_agents.AIResponse{}, fmt.Errorf("GenerateInfo: %w", err)
+		return &ai_agents.AIResponse{}, fmt.Errorf("GeneratePhrases: %w", err)
 	}
 
 	slog.Debug("Quota of generated phrases", "quota", len(phrases.Phrases))

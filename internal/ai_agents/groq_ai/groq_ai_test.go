@@ -60,9 +60,9 @@ func TestGroq_GenerateInfo(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			groq, err := NewGroq(cfg.GroqAPI)
+			groq, err := NewGroq(cfg)
 			require.NoError(t, err)
-			resp, err := groq.GenerateInfo(t.Context(), tc.Quota, tc.Lang, tc.Level, tc.Subject)
+			resp, err := groq.GeneratePhrases(t.Context(), tc.Quota, tc.Lang, tc.Level, tc.Subject)
 			require.NoError(t, err)
 
 			f, err := os.Create(fmt.Sprintf("./phrases%d.txt", i+1))

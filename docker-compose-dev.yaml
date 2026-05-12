@@ -1,0 +1,29 @@
+# Определяем список сервисов — services
+# В среде разработки будем использовать только БД Postgres
+services:
+  # Имя образа. Здесь мы используем базу данных Postgres
+  postgres:
+    image: postgres:15-alpine
+    env_file:
+      - .env.dev  # явное указание файла
+    container_name: tgbot-postgres-db
+    # А так задаются переменные окружения
+    environment:
+      POSTGRES_DB: ${DB_NAME}            # Создаст эту БД при первом запуске
+      POSTGRES_USER: ${DB_USER}          # Пользователь
+      POSTGRES_PASSWORD: ${DB_PASSWORD}  # Пароль (простейший для разработки)
+    ports:
+      - "${DB_PORT}:5432"  ## порты "внешний:внутренний"
+    volumes:
+      - engbot_dev_data:/var/lib/postgresql/data  # Сохраняем данные между перезапусками
+    # Хелсчек для проверки готовности БД к работе
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-engbot} -d ${DB_NAME:-tg_eng_ai_bot_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # Никаких сложных конфигов - всё по умолчанию
+
+volumes:
+  engbot_dev_data:
+    name: engbot_dev_data
