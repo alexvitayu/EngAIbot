@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -8,24 +9,34 @@ import (
 
 	"github.com/alexvitayu/EngAIbot/internal/config"
 	"github.com/lmittmann/tint"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-func SetupLogger(cfg *config.AppConfig) *slog.Logger {
+func SetupLogger(cfg *config.AppConfig) (*slog.Logger, error) {
+	fileLogger := &lumberjack.Logger{
+		Filename:   "../log_file.txt", //путь к файлу
+		MaxSize:    10,                // 10 MB
+		MaxBackups: 3,                 // количество старых файлов
+		MaxAge:     28,                // дней хранить стврые логи
+		Compress:   true,              // сжимать старые логи
+	}
+
 	var level slog.Leveler
 	var addSource bool
-	var out *os.File
+	var outputs []io.Writer
 
 	if cfg.APPEnv == "development" {
 		level = slog.LevelDebug
 		addSource = true
-		out = os.Stdout
+		outputs = append(outputs, os.Stdout)
 	} else {
 		level = slog.LevelInfo
 		addSource = false
-		out = os.Stderr
 	}
 
-	handler := tint.NewHandler(out, &tint.Options{
+	outputs = append(outputs, fileLogger) // файл с ротацией
+
+	handler := tint.NewHandler(io.MultiWriter(outputs...), &tint.Options{
 		AddSource:  addSource,
 		Level:      level,
 		TimeFormat: time.RFC1123,
@@ -41,5 +52,5 @@ func SetupLogger(cfg *config.AppConfig) *slog.Logger {
 	})
 
 	logger := slog.New(handler)
-	return logger
+	return logger, nil
 }

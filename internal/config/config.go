@@ -9,12 +9,13 @@ import (
 )
 
 type AppConfig struct {
-	APPEnv     string
-	TgAPI      string
-	GeminiAPI  string
-	GroqAPI    string
-	DBConfig   DBConfig
-	PoolConfig PoolConfig
+	APPEnv       string
+	TgAPI        string
+	GeminiAPI    string
+	GroqAPI      string
+	DBConfig     DBConfig
+	PoolConfig   PoolConfig
+	WorkersCount string
 }
 
 type DBConfig struct {
@@ -72,12 +73,13 @@ func LoadCfg() (*AppConfig, error) {
 	}
 
 	config := &AppConfig{
-		APPEnv:     env,
-		TgAPI:      getEnv("TELEGRAM_APITOKEN", ""),
-		GeminiAPI:  getEnv("GEMINI_API_KEY", ""),
-		GroqAPI:    getEnv("GROQ_API_KEY", ""),
-		DBConfig:   dbConfig,
-		PoolConfig: poolConfig,
+		APPEnv:       env,
+		TgAPI:        getEnv("TELEGRAM_APITOKEN", ""),
+		GeminiAPI:    getEnv("GEMINI_API_KEY", ""),
+		GroqAPI:      getEnv("GROQ_API_KEY", ""),
+		DBConfig:     dbConfig,
+		PoolConfig:   poolConfig,
+		WorkersCount: getEnv("WORKERS_COUNT", "4"),
 	}
 	return config, nil
 }

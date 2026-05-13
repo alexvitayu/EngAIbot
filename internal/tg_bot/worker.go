@@ -28,15 +28,14 @@ func (wp *WorkerPool) worker(ctx context.Context, idx int) {
 				case "start":
 					SendStartMenu(wp.bot, update.Message.Chat.ID, 0)
 				}
-				continue
 			}
 
 			if update.CallbackQuery != nil && update.CallbackQuery.Data == "confirm_yes" {
-				userID := update.CallbackQuery.From.ID
+				TGUserID := update.CallbackQuery.From.ID
 				chatID := update.CallbackQuery.Message.Chat.ID
-				messageID:= update.CallbackQuery.Message.MessageID
+				messageID := update.CallbackQuery.Message.MessageID
 				userDTO := service_dto.User{
-					TelegramUserID: userID,
+					TelegramUserID: TGUserID,
 					UserName:       update.CallbackQuery.From.UserName,
 					FirstName:      update.CallbackQuery.From.FirstName,
 					LastName:       update.CallbackQuery.From.LastName,
@@ -44,12 +43,20 @@ func (wp *WorkerPool) worker(ctx context.Context, idx int) {
 					ChatID:         chatID,
 					CreatedAt:      time.Time{},
 				}
-				err := wp.service.AddUser(ctx, userDTO)
+				userID, err := wp.service.AddUser(ctx, userDTO)
 				if err != nil {
 					wp.errChan <- err
 				}
-				settings := GetTempSettings(userID)
-				err = wp.service.AddSettings(ctx, *settings)
+				settings := GetTempSettings(TGUserID)
+				userSettings := service_dto.UserSettings{
+					UserID:   userID,
+					TgUserID: TGUserID,
+					Language: settings.Language,
+					Level:    settings.Level,
+					Topic:    settings.Topic,
+					Interval: settings.Interval,
+				}
+				err = wp.service.AddOrUpdateSettings(ctx, userSettings)
 				if err != nil {
 					wp.errChan <- err
 				}
@@ -58,6 +65,10 @@ func (wp *WorkerPool) worker(ctx context.Context, idx int) {
 			// Обработка нажатий на кнопки
 			if update.CallbackQuery != nil && update.CallbackQuery.Data != "confirm_yes" {
 				HandleCallback(wp.bot, update.CallbackQuery)
+			}
+			if update.CallbackQuery != nil && update.CallbackQuery.Data == "get_phrase_now" {
+
+				wp.service.SendPhraseNow(ctx)
 			}
 		}
 	}

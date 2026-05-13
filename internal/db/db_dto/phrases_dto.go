@@ -2,7 +2,7 @@ package db_dto
 
 import "time"
 
-type PhrasesDTO struct {
+type GetPhrasesDTO struct {
 	TargetLanguage string
 	Level          string
 	Topic          string
@@ -11,4 +11,9 @@ type PhrasesDTO struct {
 	GeneratedBy    string
 	UsageCount     int
 	CreatedAt      time.Time
+}
+
+type FetchPhraseDTO struct {
+	InLanguageText string
+	InRussianText  string
 }

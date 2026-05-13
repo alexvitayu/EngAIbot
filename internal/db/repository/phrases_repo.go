@@ -2,13 +2,17 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/alexvitayu/EngAIbot/internal/db/db_dto"
 )
 
-func (r *Repository) CreatePhrasesBatch(ctx context.Context, dtos []*db_dto.PhrasesDTO) error {
+var ErrPhraseNotExists = errors.New("phrase not found")
+
+func (r *Repository) CreatePhrasesBatch(ctx context.Context, dtos []*db_dto.GetPhrasesDTO) error {
 	if len(dtos) == 0 {
 		return nil
 	}
@@ -43,4 +47,20 @@ func (r *Repository) CreatePhrasesBatch(ctx context.Context, dtos []*db_dto.Phra
 		return fmt.Errorf("failed to add phrases to DB: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) GetPhrase(ctx context.Context, dto db_dto.GetPhrasesDTO) (*db_dto.FetchPhraseDTO, error) {
+	query := `SELECT 
+    in_language_text,
+    in_russian_text 
+	FROM phrases WHERE target_language=$1, level=$2, topic=$3;`
+	var phrases db_dto.FetchPhraseDTO
+	err := r.Conn.QueryRow(ctx, query, dto.TargetLanguage, dto.Level, dto.Topic).Scan(&phrases)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &db_dto.FetchPhraseDTO{}, ErrPhraseNotExists
+		}
+		return &db_dto.FetchPhraseDTO{}, fmt.Errorf("failed to get phrases from phrases table: %w", err)
+	}
+	return &phrases, nil
 }

@@ -13,6 +13,8 @@ type User struct {
 }
 
 type UserSettings struct {
+	UserID   int64
+	TgUserID int64
 	Language string
 	Level    string
 	Topic    string

@@ -3,7 +3,6 @@ package tg_bot
 import (
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -15,15 +14,14 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func TgBot(ctx context.Context, cfg config.AppConfig, count int, service service.PhraseService) {
+func TgBot(ctx context.Context, cfg config.AppConfig, service service.PhraseService) error {
 	// 1. Инициализация бота
 	bot, err := tgbotapi.NewBotAPI(cfg.TgAPI)
 	if err != nil {
-		slog.Error("TgBot: %w", err)
-		log.Panic(err) //TODO
+		return fmt.Errorf("failed to initialize a new telegram bot: %w", err)
 	}
 
-	slog.Info("EngAIbot authorized successfully", "username", bot.Self.UserName)
+	slog.Info("EngAIbot initialized successfully", "username", bot.Self.UserName)
 
 	// 2. Настраиваем получение обновлений (long polling)
 	updateConfig := tgbotapi.NewUpdate(0)
@@ -32,13 +30,25 @@ func TgBot(ctx context.Context, cfg config.AppConfig, count int, service service
 
 	var wg sync.WaitGroup
 
-	pool := NewWorkerPool(bot, updates, count, &wg, service)
+	workersCount, err := strconv.Atoi(cfg.WorkersCount)
+	if err != nil {
+		return fmt.Errorf("failed to convert string to int: %w", err)
+	}
+
+	pool := NewWorkerPool(bot, updates, workersCount, &wg, service)
 
 	pool.Start(ctx) // запускаем воркеров для обработки сообщений из канала updates
 
-	<-ctx.Done() // получаем сигнал на остановку
-	pool.Stop()  // говорим воркерам остановиться
-	wg.Wait()    // ждём, пока все воркеры завершатся
+	for {
+		select {
+		case <-ctx.Done(): // получаем сигнал на остановку
+			pool.Stop() // говорим воркерам остановиться
+			wg.Wait()   // ждём, пока все воркеры завершатся
+			return nil
+		case poolErr := <-pool.errChan:
+			slog.Error("worker pool error", "error", poolErr)
+		}
+	}
 }
 
 func HandleCallback(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {

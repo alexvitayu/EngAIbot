@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/alexvitayu/EngAIbot/internal/db/repository"
 	"github.com/alexvitayu/EngAIbot/internal/logger"
 	"github.com/alexvitayu/EngAIbot/internal/service"
-	"github.com/alexvitayu/EngAIbot/internal/service/service_dto"
+	"github.com/alexvitayu/EngAIbot/internal/tg_bot"
 )
 
 func main() {
@@ -23,11 +24,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	customLogger := logger.SetupLogger(cfg)
+	customLogger, err := logger.SetupLogger(cfg)
+	if err != nil {
+		fmt.Println("logger error")
+	}
 	slog.SetDefault(customLogger)
 	slog.Debug("APP_ENV", "app_env", cfg.APPEnv)
-
-	//tg_bot.TgBot(*cfg)
 
 	conn, err := db.NewPgxPool(ctx, cfg)
 	if err != nil {
@@ -36,20 +38,19 @@ func main() {
 	}
 	slog.Debug("connections pool initialized!")
 
-	repo := repository.Repository{
-		Conn: conn,
-	}
+	repo := repository.NewRepository(conn)
 
 	ai, err := groq_ai.NewGroq(cfg)
 	if err != nil {
 		slog.Error("failed to initialize groq AI", "error", err)
 		os.Exit(1)
 	}
+	slog.Debug("AI agent initialized successfully!")
 
-	s := service.NewPhraseService(&repo, ai)
-	err = s.AddPhrases(ctx, service_dto.UserSettings{})
+	service := service.NewPhraseService(repo, ai)
+
+	err = tg_bot.TgBot(ctx, *cfg, *service)
 	if err != nil {
-		slog.Error("failed to add phrases to DB", "error", err)
+		slog.Error("TgBot: %w", err)
 	}
-	slog.Debug("phrases saved to DD successfully!!! my congrats!!!")
 }
