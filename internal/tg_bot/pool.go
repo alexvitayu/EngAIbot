@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/alexvitayu/EngAIbot/internal/scheduler"
 	"github.com/alexvitayu/EngAIbot/internal/service"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -15,19 +16,23 @@ type WorkerPool struct {
 	updates      tgbotapi.UpdatesChannel
 	workersCount int
 	wg           *sync.WaitGroup
-	service      service.PhraseService
+	service      *service.PhraseService
+	Sched        *scheduler.Scheduler
 	stopChan     chan struct{}
 	errChan      chan error
 }
 
 func NewWorkerPool(bot *tgbotapi.BotAPI, u tgbotapi.UpdatesChannel, count int,
-	wg *sync.WaitGroup, s service.PhraseService) *WorkerPool {
+	wg *sync.WaitGroup, s *service.PhraseService, sched *scheduler.Scheduler) *WorkerPool {
 	return &WorkerPool{
 		bot:          bot,
 		updates:      u,
 		workersCount: count,
 		wg:           wg,
 		service:      s,
+		Sched:        sched,
+		stopChan:     make(chan struct{}),
+		errChan:      make(chan error),
 	}
 }
 

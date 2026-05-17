@@ -9,12 +9,13 @@ import (
 	"sync"
 
 	"github.com/alexvitayu/EngAIbot/internal/config"
+	"github.com/alexvitayu/EngAIbot/internal/scheduler"
 	"github.com/alexvitayu/EngAIbot/internal/service"
 	"github.com/alexvitayu/EngAIbot/internal/service/service_dto"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func TgBot(ctx context.Context, cfg config.AppConfig, service service.PhraseService) error {
+func TgBot(ctx context.Context, cfg config.AppConfig, service *service.PhraseService, sched *scheduler.Scheduler) error {
 	// 1. Инициализация бота
 	bot, err := tgbotapi.NewBotAPI(cfg.TgAPI)
 	if err != nil {
@@ -22,6 +23,13 @@ func TgBot(ctx context.Context, cfg config.AppConfig, service service.PhraseServ
 	}
 
 	slog.Info("EngAIbot initialized successfully", "username", bot.Self.UserName)
+
+	sched.SetBot(bot)
+
+	// LoadAndStart при перезапуске программы загружает настройки пользователей и восстанавливает планировщик
+	if err = sched.LoadAndStart(ctx); err != nil {
+		return fmt.Errorf("load and start error: %w", err)
+	}
 
 	// 2. Настраиваем получение обновлений (long polling)
 	updateConfig := tgbotapi.NewUpdate(0)
@@ -35,7 +43,7 @@ func TgBot(ctx context.Context, cfg config.AppConfig, service service.PhraseServ
 		return fmt.Errorf("failed to convert string to int: %w", err)
 	}
 
-	pool := NewWorkerPool(bot, updates, workersCount, &wg, service)
+	pool := NewWorkerPool(bot, updates, workersCount, &wg, service, sched)
 
 	pool.Start(ctx) // запускаем воркеров для обработки сообщений из канала updates
 
@@ -44,14 +52,23 @@ func TgBot(ctx context.Context, cfg config.AppConfig, service service.PhraseServ
 		case <-ctx.Done(): // получаем сигнал на остановку
 			pool.Stop() // говорим воркерам остановиться
 			wg.Wait()   // ждём, пока все воркеры завершатся
+			sched.Stop()
 			return nil
 		case poolErr := <-pool.errChan:
 			slog.Error("worker pool error", "error", poolErr)
+
+			// Graceful shutdown при ошибке
+			pool.Stop()
+			wg.Wait()
+			sched.Stop()
+
+			return fmt.Errorf("pool error: %w", poolErr)
 		}
 	}
 }
 
-func HandleCallback(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
+func HandleCallback(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery,
+	sched *scheduler.Scheduler, settings *service_dto.UserSettings) {
 	callbackConfig := tgbotapi.NewCallback(query.ID, "")
 	bot.Request(callbackConfig)
 
@@ -82,7 +99,7 @@ func HandleCallback(bot *tgbotapi.BotAPI, query *tgbotapi.CallbackQuery) {
 	case strings.HasPrefix(query.Data, "interval_"):
 		saveInterval(bot, chatID, messageID, query.Data[9:])
 	case query.Data == "confirm_yes":
-		startLearning(bot, chatID, messageID)
+		startLearning(bot, chatID, messageID, sched, settings)
 	case query.Data == "confirm_no":
 		clearSettings(bot, chatID, messageID)
 	}
@@ -206,18 +223,8 @@ func getTopicDisplay(topicCode string) string {
 	topics := map[string]string{
 		"travel":        "✈️ Путешествия",
 		"work":          "💼 Работа",
-		"business":      "💼 Бизнес",
 		"family":        "👨‍👩‍👧 Семья",
 		"food":          "🍕 Еда",
-		"health":        "❤️ Здоровье",
-		"hobbies":       "🎮 Хобби",
-		"technology":    "💻 Технологии",
-		"tech":          "💻 Технологии",
-		"weather":       "🌤️ Погода",
-		"education":     "📚 Образование",
-		"shopping":      "🛍️ Покупки",
-		"daily life":    "🏠 Повседневность",
-		"daily_life":    "🏠 Повседневность",
 		"home_routines": "🏠 Домашние дела",
 		"any subject":   "🎯 Разное",
 	}
@@ -426,8 +433,7 @@ func confirmSettings(bot *tgbotapi.BotAPI, chatID int64, messageID int) {
 	bot.Send(editMsg)
 }
 
-func startLearning(bot *tgbotapi.BotAPI, chatID int64, messageID int) {
-	settings := GetTempSettings(chatID)
+func startLearning(bot *tgbotapi.BotAPI, chatID int64, messageID int, sched *scheduler.Scheduler, settings *service_dto.UserSettings) {
 	text := fmt.Sprintf(
 		"🎉 *Отлично! Настройки сохранены!*\n\n"+
 			"🌍 Язык: *%s*\n"+
@@ -451,8 +457,16 @@ func startLearning(bot *tgbotapi.BotAPI, chatID int64, messageID int) {
 	editMsg.ReplyMarkup = &keyboard
 	bot.Send(editMsg)
 
-	// Запускаем планировщик для пользователя
-	//startSchedulerForUser(chatID, settings)
+	interval, err := strconv.Atoi(settings.Interval)
+	if err != nil {
+		slog.Error("invalid interval", "interval", settings.Interval, "error", err)
+	}
+
+	err = sched.AddJob(settings.TgUserID, chatID, interval, *settings)
+	if err != nil {
+		slog.Error("failed to add job", "error", err)
+		bot.Send(tgbotapi.NewMessage(chatID, "⚠️ Не удалось настроить расписание"))
+	}
 }
 
 func clearSettings(bot *tgbotapi.BotAPI, chatID int64, messageID int) {

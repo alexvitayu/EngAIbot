@@ -8,8 +8,8 @@ import (
 
 	"github.com/alexvitayu/EngAIbot/internal/ai_agents"
 	"github.com/alexvitayu/EngAIbot/internal/db/db_dto"
+	"github.com/alexvitayu/EngAIbot/internal/scheduler"
 	"github.com/alexvitayu/EngAIbot/internal/service/service_dto"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type PhraseKeeper interface {
@@ -20,22 +20,25 @@ type PhraseKeeper interface {
 	ExistsSetting(ctx context.Context, userID int64, language string) (int64, bool, error)
 	UpdateSettings(ctx context.Context, dto db_dto.SettingsDTO, settingID int64) error
 	GetPhrase(ctx context.Context, dto db_dto.GetPhrasesDTO) (*db_dto.FetchPhraseDTO, error)
+	GetRandomPhrase(ctx context.Context, dto db_dto.GetPhrasesDTO) (*db_dto.FetchPhraseDTO, error)
 }
 
 type PhraseService struct {
-	DB PhraseKeeper
-	AI ai_agents.PhraseGenerator
+	DB        PhraseKeeper
+	AI        ai_agents.PhraseGenerator
+	Scheduler *scheduler.Scheduler
 }
 
-func NewPhraseService(db PhraseKeeper, ai ai_agents.PhraseGenerator) *PhraseService {
+func NewPhraseService(db PhraseKeeper, ai ai_agents.PhraseGenerator, scheduler *scheduler.Scheduler) *PhraseService {
 	return &PhraseService{
-		DB: db,
-		AI: ai,
+		DB:        db,
+		AI:        ai,
+		Scheduler: scheduler,
 	}
 }
 
 func (p *PhraseService) AddPhrases(ctx context.Context, dto service_dto.UserSettings) error {
-	resp, err := p.AI.GeneratePhrases(ctx, 20, dto.Level, dto.Language, dto.Topic)
+	resp, err := p.AI.GeneratePhrases(ctx, 2, dto.Level, dto.Language, dto.Topic)
 	if err != nil {
 		return fmt.Errorf("failed to generate phrases: %w", err)
 	}
@@ -114,15 +117,15 @@ func (p *PhraseService) AddOrUpdateSettings(ctx context.Context, dto service_dto
 	return nil
 }
 
-func (p *PhraseService) SendPhraseNow(ctx context.Context, dto service_dto.UserSettings) error {
+func (p *PhraseService) SendPhraseNow(ctx context.Context, dto service_dto.UserSettings) (*db_dto.FetchPhraseDTO, error) {
 	getPhraseDTO := db_dto.GetPhrasesDTO{
 		TargetLanguage: dto.Language,
 		Level:          dto.Level,
 		Topic:          dto.Topic,
 	}
-	phrases, err := p.DB.GetPhrase(ctx, getPhraseDTO)
+	phrase, err := p.DB.GetRandomPhrase(ctx, getPhraseDTO)
 	if err != nil {
-		fmt.Errorf("get phrase from DB error:%w", err)
+		return &db_dto.FetchPhraseDTO{}, fmt.Errorf("get phrase from DB error:%w", err)
 	}
-	return nil
+	return phrase, nil
 }

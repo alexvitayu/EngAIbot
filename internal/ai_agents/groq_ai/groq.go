@@ -22,7 +22,7 @@ func NewGroq(cfg *config.AppConfig) (*Groq, error) {
 	)
 	if err != nil {
 		slog.Error("failed to create a new groq client", "error", err)
-		return &Groq{}, fmt.Errorf("NewGroq: %w", err)
+		return nil, fmt.Errorf("NewGroq: %w", err)
 	}
 	g := &Groq{
 		client: client,

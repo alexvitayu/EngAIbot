@@ -9,6 +9,7 @@ require (
 	github.com/jeffphp/lingua-go v0.0.0-20230203142951-15f769ac2c74
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.1.3
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )

@@ -31,7 +31,7 @@ func (r *Repository) CreatePhrasesBatch(ctx context.Context, dtos []*db_dto.GetP
 	for i, dto := range dtos {
 		offset := i * 6
 		placeholders = append(placeholders,
-			fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d)",
+			fmt.Sprintf("(LOWER($%d), UPPER($%d), LOWER($%d), $%d, $%d, $%d)",
 				offset+1, offset+2, offset+3, offset+4, offset+5, offset+6),
 		)
 		values = append(values,
@@ -53,14 +53,41 @@ func (r *Repository) GetPhrase(ctx context.Context, dto db_dto.GetPhrasesDTO) (*
 	query := `SELECT 
     in_language_text,
     in_russian_text 
-	FROM phrases WHERE target_language=$1, level=$2, topic=$3;`
-	var phrases db_dto.FetchPhraseDTO
-	err := r.Conn.QueryRow(ctx, query, dto.TargetLanguage, dto.Level, dto.Topic).Scan(&phrases)
+	FROM phrase WHERE target_language=$1 AND level=$2 AND topic=$3;`
+	var phrase db_dto.FetchPhraseDTO
+	lang := dto.TargetLanguage
+	level := dto.Level
+	topic := dto.Topic
+	err := r.Conn.QueryRow(ctx, query, lang, level, topic).Scan(&phrase.InLanguageText, &phrase.InRussianText)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return &db_dto.FetchPhraseDTO{}, ErrPhraseNotExists
 		}
-		return &db_dto.FetchPhraseDTO{}, fmt.Errorf("failed to get phrases from phrases table: %w", err)
+		return &db_dto.FetchPhraseDTO{}, fmt.Errorf("failed to get phrase from phrase table: %w", err)
 	}
-	return &phrases, nil
+	return &phrase, nil
+}
+
+func (r *Repository) GetRandomPhrase(ctx context.Context, dto db_dto.GetPhrasesDTO) (*db_dto.FetchPhraseDTO, error) {
+	query := `SELECT 
+        in_language_text,
+        in_russian_text 
+    FROM phrases 
+    WHERE target_language = $1
+      AND level = $2
+      AND topic = $3
+    ORDER BY RANDOM()
+    LIMIT 1;`
+
+	var phrase db_dto.FetchPhraseDTO
+	err := r.Conn.QueryRow(ctx, query,
+		dto.TargetLanguage,
+		dto.Level,
+		dto.Topic,
+	).Scan(&phrase.InLanguageText, &phrase.InRussianText)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get random phrase from phrase table: %w", err)
+	}
+	return &phrase, nil
 }

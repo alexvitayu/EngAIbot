@@ -10,9 +10,10 @@ import (
 	"github.com/alexvitayu/EngAIbot/internal/config"
 	"github.com/alexvitayu/EngAIbot/internal/db"
 	"github.com/alexvitayu/EngAIbot/internal/db/repository"
-	"github.com/alexvitayu/EngAIbot/internal/logger"
+	"github.com/alexvitayu/EngAIbot/internal/scheduler"
 	"github.com/alexvitayu/EngAIbot/internal/service"
 	"github.com/alexvitayu/EngAIbot/internal/tg_bot"
+	"github.com/alexvitayu/EngAIbot/logger"
 )
 
 func main() {
@@ -47,10 +48,12 @@ func main() {
 	}
 	slog.Debug("AI agent initialized successfully!")
 
-	service := service.NewPhraseService(repo, ai)
+	sched := scheduler.NewScheduler(repo)
 
-	err = tg_bot.TgBot(ctx, *cfg, *service)
+	serv := service.NewPhraseService(repo, ai, sched)
+
+	err = tg_bot.TgBot(ctx, *cfg, serv, sched)
 	if err != nil {
-		slog.Error("TgBot: %w", err)
+		slog.Error("TgBot error", "error", err)
 	}
 }

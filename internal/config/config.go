@@ -16,6 +16,7 @@ type AppConfig struct {
 	DBConfig     DBConfig
 	PoolConfig   PoolConfig
 	WorkersCount string
+	SchedTime    string
 }
 
 type DBConfig struct {
@@ -80,6 +81,7 @@ func LoadCfg() (*AppConfig, error) {
 		DBConfig:     dbConfig,
 		PoolConfig:   poolConfig,
 		WorkersCount: getEnv("WORKERS_COUNT", "4"),
+		SchedTime: getEnv("SCHED_TIME", "0,0166"),
 	}
 	return config, nil
 }
